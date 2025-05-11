@@ -3,9 +3,9 @@ package server
 import (
 	"encoding/json"
 	"homelab-inventory/internal/logging"
+	"homelab-inventory/internal/storage"
 	"homelab-inventory/internal/version"
 	"net/http"
-	"sync"
 
 	"homelab-inventory/pkg/model"
 
@@ -13,20 +13,20 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-var (
-	sysInfos []model.SystemInfo
-	mu       sync.Mutex
-)
-
 func StartServer(port string) {
+
+	store, err := storage.NewSQLiteStorage("./homelab.db")
+	if err != nil {
+		logging.Logger.Fatalw("failed to start sqlite", "error", err)
+	}
+
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(ZapLogger(logging.Logger))
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		v := version.Get()
-		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(model.HealthResponse{
 			Status:    "ok",
 			Version:   v.Version,
@@ -39,30 +39,34 @@ func StartServer(port string) {
 			return
 		}
 	})
-	r.Post("/sysinfo", handlePost)
+	r.Post("/sysinfo", handlePost(store))
 
 	logging.Logger.Infow("Starting server on port", "port", port)
-	err := http.ListenAndServe(":"+port, r)
-	if err != nil {
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		logging.Logger.Fatalw("Error starting server", "error", err)
 		return
 	}
 }
 
-func handlePost(w http.ResponseWriter, r *http.Request) {
-	var info model.SystemInfo
-	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
-		logging.Logger.Errorw("Error decoding JSON", "error", err)
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+func handlePost(store *storage.SQLiteStorage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var info model.SystemInfo
+		if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
 
-	mu.Lock()
-	sysInfos = append(sysInfos, info)
-	mu.Unlock()
+		if err := store.SaveSystemInfo(&info); err != nil {
+			logging.Logger.Errorw("failed to save system info", "error", err)
+			http.Error(w, "DB error", http.StatusInternalServerError)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(map[string]string{"status": "received"})
-	if err != nil {
-		return
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(map[string]string{"status": "received"})
+		if err != nil {
+			logging.Logger.Errorw("Error encoding JSON", "error", err)
+			return
+		}
 	}
 }
