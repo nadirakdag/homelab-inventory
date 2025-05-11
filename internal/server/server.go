@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"homelab-inventory/internal/logging"
+	"homelab-inventory/internal/version"
 	"net/http"
 	"sync"
 
@@ -24,7 +25,15 @@ func StartServer(port string) {
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		v := version.Get()
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(model.HealthResponse{
+			Status:    "ok",
+			Version:   v.Version,
+			Commit:    v.Commit,
+			BuildTime: v.BuildTime,
+			GoVersion: v.GoVersion,
+		})
 		if err != nil {
 			logging.Logger.Errorw("Error encoding JSON", "error", err)
 			return
