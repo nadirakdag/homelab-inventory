@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"homelab-inventory/internal/client"
 	"homelab-inventory/internal/collector"
+	"homelab-inventory/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -24,18 +24,18 @@ var collectCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		info, err := collector.CollectSystemInfo()
 		if err != nil {
-			fmt.Println("Error collecting system info:", err)
+			logging.Logger.Errorw("Error collecting system info", "error", err)
 			return
 		}
 
 		data, _ := json.MarshalIndent(info, "", "  ")
-		fmt.Println("Collected System Info:\n", string(data))
+		logging.Logger.Infow("Collected system info", "info", string(data))
 
 		if send && url != "" {
 			if err := client.PushSystemInfo(url, info); err != nil {
-				fmt.Println("Failed to send system info:", err)
+				logging.Logger.Errorw("Error sending system info", "error", err)
 			} else {
-				fmt.Println("System info sent to", url)
+				logging.Logger.Infow("Sent system info", "info", string(data))
 			}
 		}
 	},

@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"log"
+	"homelab-inventory/internal/logging"
 	"net/http"
 	"sync"
 
@@ -26,12 +26,13 @@ func StartServer(port string) {
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		if err != nil {
+			logging.Logger.Errorw("Error encoding JSON", "error", err)
 			return
 		}
 	})
 	r.Post("/sysinfo", handlePost)
 
-	log.Println("Starting server on port", port)
+	logging.Logger.Infow("Starting server on port", "port", port)
 	err := http.ListenAndServe(":"+port, r)
 	if err != nil {
 		return
@@ -41,6 +42,7 @@ func StartServer(port string) {
 func handlePost(w http.ResponseWriter, r *http.Request) {
 	var info model.SystemInfo
 	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+		logging.Logger.Errorw("Error decoding JSON", "error", err)
 		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
