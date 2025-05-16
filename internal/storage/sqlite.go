@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"homelab-inventory/pkg/model"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type SQLiteStorage struct {
@@ -14,7 +14,8 @@ type SQLiteStorage struct {
 
 // NewSQLiteStorage initializes the DB and ensures tables exist
 func NewSQLiteStorage(path string) (*SQLiteStorage, error) {
-	db, err := sql.Open("sqlite3", path)
+	dataSource := fmt.Sprintf("file:%s?cache=shared&mode=rwc", path)
+	db, err := sql.Open("sqlite", dataSource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite DB: %w", err)
 	}
