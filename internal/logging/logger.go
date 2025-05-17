@@ -6,10 +6,19 @@ import (
 
 var Logger *zap.SugaredLogger
 
-func Init() {
-	raw, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
+func Init(debug bool) {
+	var base *zap.Logger
+	var err error
+
+	if debug {
+		base, err = zap.NewDevelopment()
+	} else {
+		base, err = zap.NewProduction()
 	}
-	Logger = raw.Sugar()
+
+	if err != nil {
+		panic("failed to initialize zap logger: " + err.Error())
+	}
+
+	Logger = base.Sugar()
 }

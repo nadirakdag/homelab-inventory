@@ -28,7 +28,7 @@ var collectCmd = &cobra.Command{
 			return
 		}
 
-		data, _ := json.MarshalIndent(info, "", "  ")
+		data, _ := json.Marshal(info)
 		logging.Logger.Infow("Collected system info", "info", string(data))
 
 		if send && url != "" {

@@ -43,15 +43,18 @@ func (s *SQLiteStorage) ensureSchema() error {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS system_disk (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        system_info_id INTEGER,
-        mountpoint TEXT,
-        total_gb REAL,
-        used_gb REAL,
-        free_gb REAL,
-        FOREIGN KEY(system_info_id) REFERENCES system_info(id) ON DELETE CASCADE
-    );
+	CREATE TABLE IF NOT EXISTS system_disk_device (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		system_info_id INTEGER,
+		name TEXT,
+		model TEXT,
+		serial_number TEXT,
+		vendor TEXT,
+		interface TEXT,
+		type TEXT,
+		size_gb REAL,
+		FOREIGN KEY(system_info_id) REFERENCES system_info(id) ON DELETE CASCADE
+	);
     `
 	_, err := s.db.Exec(schema)
 	if err != nil {
@@ -81,7 +84,7 @@ func (s *SQLiteStorage) SaveSystemInfo(info *model.SystemInfo) error {
 		return err
 	}
 
-	if err := insertDisks(tx, systemID, info.Disks); err != nil {
+	if err := insertDisks(tx, systemID, info.PhysicalDisks); err != nil {
 		return err
 	}
 
@@ -104,15 +107,15 @@ func insertSystemInfo(tx *sql.Tx, info *model.SystemInfo) (int64, error) {
 }
 
 // insertDisks inserts related disks
-func insertDisks(tx *sql.Tx, systemID int64, disks []model.DiskInfo) error {
-	for _, d := range disks {
+func insertDisks(tx *sql.Tx, systemID int64, disks []model.PhysicalDisk) error {
+	for _, disk := range disks {
 		_, err := tx.Exec(`
-            INSERT INTO system_disk (system_info_id, mountpoint, total_gb, used_gb, free_gb)
-            VALUES (?, ?, ?, ?, ?)`,
-			systemID, d.Mountpoint, d.TotalGB, d.UsedGB, d.FreeGB,
+        INSERT INTO system_disk_device (system_info_id, name, model, serial_number, vendor, interface, type, size_gb)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			systemID, disk.Name, disk.Model, disk.SerialNumber, disk.Vendor, disk.Interface, disk.Type, disk.SizeGB,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to insert disk info: %w", err)
+			return err
 		}
 	}
 	return nil

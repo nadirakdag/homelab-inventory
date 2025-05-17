@@ -15,6 +15,6 @@ var (
 
 func main() {
 	version.Set(Version, Commit, BuildTime, GoVersion)
-	logging.Init()
+	logging.Init(true)
 	cmd.Execute()
 }
